@@ -95,14 +95,18 @@ func _add_weapon_box(pos: Vector3, size: Vector3, color: Color) -> void:
 	weapon_root.add_child(mesh)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		apply_look(event.relative)
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT: virtual_fire = true
-		elif event.button_index == MOUSE_BUTTON_RIGHT: aiming = true
-	if event is InputEventMouseButton and not event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT: virtual_fire = false
-		elif event.button_index == MOUSE_BUTTON_RIGHT: aiming = false
+	# Android can synthesize mouse-button events from ordinary screen taps.
+	# Never interpret those events as firing: mobile firing is owned only by the FIRE HUD button.
+	var is_mobile := OS.get_name() == "Android" or OS.get_name() == "iOS"
+	if not is_mobile:
+		if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			apply_look(event.relative)
+		if event is InputEventMouseButton and event.pressed:
+			if event.button_index == MOUSE_BUTTON_LEFT: virtual_fire = true
+			elif event.button_index == MOUSE_BUTTON_RIGHT: aiming = true
+		if event is InputEventMouseButton and not event.pressed:
+			if event.button_index == MOUSE_BUTTON_LEFT: virtual_fire = false
+			elif event.button_index == MOUSE_BUTTON_RIGHT: aiming = false
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -145,7 +149,8 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	camera.fov = lerpf(camera.fov,55.0 if aiming else 78.0,delta*10)
 	weapon_root.position.x = lerpf(weapon_root.position.x,0.18 if aiming else 0.28,delta*9)
-	if virtual_fire or Input.is_action_pressed("fire"): _fire()
+	if virtual_fire: _fire()
+	elif not (OS.get_name() == "Android" or OS.get_name() == "iOS") and Input.is_action_pressed("fire"): _fire()
 	if Input.is_action_just_pressed("reload"): reload()
 
 func _fire() -> void:

@@ -16,6 +16,7 @@ func _ready() -> void:
 	player.health_changed.connect(_on_health_changed)
 	player.ammo_changed.connect(_on_ammo_changed)
 	player.enemy_killed.connect(_on_enemy_killed)
+	player.hit_confirmed.connect(_on_hit_confirmed)
 	hud = CanvasLayer.new()
 	hud.set_script(HudScript)
 	add_child(hud)
@@ -105,3 +106,6 @@ func _on_enemy_killed() -> void:
 		hud.set_objective("MISSION COMPLETE  •  AREA SECURE")
 	else:
 		hud.set_objective("ELIMINATE HOSTILE FORCES  •  %d REMAINING" % enemies_remaining)
+
+func _on_hit_confirmed() -> void:
+	if is_instance_valid(hud): hud.show_hit_confirm()

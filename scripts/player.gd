@@ -152,6 +152,7 @@ func _fire() -> void:
 	var origin := camera.global_position
 	var direction := -camera.global_transform.basis.z
 	var query := PhysicsRayQueryParameters3D.create(origin,origin+direction*100.0)
+	query.exclude = [get_rid()]
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if hit and hit.collider.is_in_group("enemies"): hit.collider.take_hit(34.0)
 	weapon_root.position.z = -0.43

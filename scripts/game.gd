@@ -12,7 +12,7 @@ func _ready() -> void:
 	player.set_script(PlayerScript)
 	player.name = "Player"
 	add_child(player)
-	player.position = Vector3(0, 1.2, 10)
+	player.position = Vector3(0, 0, 10)
 	player.health_changed.connect(_on_health_changed)
 	player.ammo_changed.connect(_on_ammo_changed)
 	player.enemy_killed.connect(_on_enemy_killed)

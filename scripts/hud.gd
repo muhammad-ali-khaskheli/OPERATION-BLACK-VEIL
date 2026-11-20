@@ -202,7 +202,8 @@ func _update_joystick(pos: Vector2) -> void:
 	joystick_knob.position = joystick_center + delta - joystick_knob.size * 0.5
 	var raw := delta / JOY_RADIUS
 	if raw.length() < 0.12: raw = Vector2.ZERO
-	else: raw = raw.normalized() * inverse_lerp(0.12, 1.0, minf(raw.length(), 1.0))	smoothed_joystick = smoothed_joystick.lerp(raw, 0.42)
+	else: raw = raw.normalized() * inverse_lerp(0.12, 1.0, minf(raw.length(), 1.0))
+	smoothed_joystick = smoothed_joystick.lerp(raw, 0.42)
 	move_state = smoothed_joystick
 	player.set_move(move_state)
 

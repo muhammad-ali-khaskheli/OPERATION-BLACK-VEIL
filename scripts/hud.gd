@@ -104,7 +104,7 @@ func _layout_controls() -> void:
 	joystick_base.offset_bottom = -34
 	joystick_center = joystick_base.global_position + joystick_base.size * 0.5
 	if joystick_touch == -1:
-		joystick_knob.position = joystick_base.position + joystick_base.size * 0.5 - joystick_knob.size * 0.5
+		joystick_knob.position = joystick_center - joystick_knob.size * 0.5
 	ammo_label.anchor_left = 1
 	ammo_label.anchor_right = 1
 	ammo_label.anchor_top = 1

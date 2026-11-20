@@ -12,6 +12,7 @@ var joystick_center := Vector2.ZERO
 var joystick_touch := -1
 var look_touch := -1
 var move_state := Vector2.ZERO
+var smoothed_joystick := Vector2.ZERO
 var screen_size := Vector2.ZERO
 const JOY_RADIUS := 62.0
 const LOOK_ZONE_BOTTOM := 0.68
@@ -92,19 +93,44 @@ func _create_joystick() -> void:
 
 func _layout_controls() -> void:
 	if not is_instance_valid(joystick_base): return
-	joystick_base.position = Vector2(36, screen_size.y - 206)
-	joystick_center = joystick_base.position + joystick_base.size * 0.5
+	# Anchored offsets keep controls attached to the safe bottom corners on every aspect ratio.
+	joystick_base.anchor_left = 0
+	joystick_base.anchor_right = 0
+	joystick_base.anchor_top = 1
+	joystick_base.anchor_bottom = 1
+	joystick_base.offset_left = 34
+	joystick_base.offset_right = 208
+	joystick_base.offset_top = -208
+	joystick_base.offset_bottom = -34
+	joystick_center = joystick_base.global_position + joystick_base.size * 0.5
 	if joystick_touch == -1:
-		joystick_knob.position = joystick_center - joystick_knob.size * 0.5
-	ammo_label.position = Vector2(screen_size.x - 230, screen_size.y - 58)
+		joystick_knob.position = joystick_base.position + joystick_base.size * 0.5 - joystick_knob.size * 0.5
+	ammo_label.anchor_left = 1
+	ammo_label.anchor_right = 1
+	ammo_label.anchor_top = 1
+	ammo_label.anchor_bottom = 1
+	ammo_label.offset_left = -230
+	ammo_label.offset_right = -24
+	ammo_label.offset_top = -58
+	ammo_label.offset_bottom = -22
 	for child in root.get_children():
-		if child is Button:
-			match child.name:
-				"FIRE": child.position = Vector2(screen_size.x - 150, screen_size.y - 142)
-				"AIM": child.position = Vector2(screen_size.x - 280, screen_size.y - 132)
-				"JUMP": child.position = Vector2(screen_size.x - 280, screen_size.y - 210)
-				"RELOAD": child.position = Vector2(screen_size.x - 280, screen_size.y - 54)
-				"SPRINT": child.position = Vector2(screen_size.x - 410, screen_size.y - 70)
+		if child is not Button: continue
+		child.anchor_left = 1
+		child.anchor_right = 1
+		child.anchor_top = 1
+		child.anchor_bottom = 1
+		match child.name:
+			"FIRE": _set_button_offsets(child, -148, -132, -24, -24)
+			"AIM": _set_button_offsets(child, -276, -122, -164, -56)
+			"JUMP": _set_button_offsets(child, -276, -204, -164, -138)
+			"RELOAD": _set_button_offsets(child, -276, -54, -164, -10)
+			"SPRINT": _set_button_offsets(child, -410, -70, -298, -16)
+
+func _set_button_offsets(button: Button, left: float, top: float, right: float, bottom: float) -> void:
+	button.offset_left = left
+	button.offset_top = top
+	button.offset_right = right
+	button.offset_bottom = bottom
 
 func _add_button(caption: String, action: String, offset: Vector2, size: Vector2, font_size: int) -> void:
 	var button := Button.new()
@@ -145,12 +171,13 @@ func _input(event: InputEvent) -> void:
 			if event.position.x < screen_size.x * 0.43 and event.position.y > screen_size.y * 0.55 and joystick_touch == -1:
 				joystick_touch = event.index
 				_update_joystick(event.position)
-			elif event.position.x >= screen_size.x * 0.43 and event.position.y < screen_size.y * LOOK_ZONE_BOTTOM and look_touch == -1:
+			elif event.position.x >= screen_size.x * 0.43 and event.position.y < screen_size.y * LOOK_ZONE_BOTTOM and look_touch == -1 and not _touch_over_button(event.position):
 				look_touch = event.index
 		else:
 			if event.index == joystick_touch:
 				joystick_touch = -1
 				move_state = Vector2.ZERO
+				smoothed_joystick = Vector2.ZERO
 				player.set_move(Vector2.ZERO)
 				joystick_knob.position = joystick_center - joystick_knob.size * 0.5
 			if event.index == look_touch: look_touch = -1
@@ -160,6 +187,12 @@ func _input(event: InputEvent) -> void:
 		elif event.index == look_touch:
 			player.apply_look(event.relative * 0.72)
 
+func _touch_over_button(pos: Vector2) -> bool:
+	for child in root.get_children():
+		if child is Button and child.get_global_rect().has_point(pos):
+			return true
+	return false
+
 func _update_joystick(pos: Vector2) -> void:
 	var delta := pos - joystick_center
 	if delta.length() < 8.0:
@@ -167,7 +200,10 @@ func _update_joystick(pos: Vector2) -> void:
 	else:
 		delta = delta.limit_length(JOY_RADIUS)
 	joystick_knob.position = joystick_center + delta - joystick_knob.size * 0.5
-	move_state = delta / JOY_RADIUS
+	var raw := delta / JOY_RADIUS
+	if raw.length() < 0.12: raw = Vector2.ZERO
+	else: raw = raw.normalized() * inverse_lerp(0.12, 1.0, minf(raw.length(), 1.0))	smoothed_joystick = smoothed_joystick.lerp(raw, 0.42)
+	move_state = smoothed_joystick
 	player.set_move(move_state)
 
 func set_health(value: float) -> void:

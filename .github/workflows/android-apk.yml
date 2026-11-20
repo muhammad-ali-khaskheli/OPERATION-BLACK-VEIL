@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
@@ -25,7 +25,9 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Godot 4 with export templates
         uses: chickensoft-games/setup-godot@v2
@@ -34,18 +36,33 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: Import and validate project
+      - name: Create temporary Android debug signing key
+        run: |
+          mkdir -p "$HOME/.config/godot/keystore"
+          keytool -genkeypair -noprompt -keystore "$HOME/.config/godot/keystore/debug.keystore" -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+
+      - name: Import project
         run: godot --headless --editor --path . --import
 
-      - name: Export debug APK
+      - name: Export installable debug APK
         run: |
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/operation-black-veil-debug.apk
 
-      - name: Upload installable APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: operation-black-veil-android-debug
           path: build/operation-black-veil-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish latest APK download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mobile-debug-latest
+          name: Latest Android Debug Build
+          prerelease: true
+          make_latest: true
+          files: build/operation-black-veil-debug.apk
+          overwrite_files: true

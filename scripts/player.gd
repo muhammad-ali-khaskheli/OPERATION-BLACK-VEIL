@@ -22,6 +22,7 @@ var weapon_root: Node3D
 var muzzle_flash: OmniLight3D
 
 func _ready() -> void:
+	_configure_input()
 	add_to_group("player")
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.38
@@ -39,6 +40,15 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	health_changed.emit(health)
 	ammo_changed.emit(ammo, reserve_ammo)
+
+func _configure_input() -> void:
+	var bindings := {"move_forward": KEY_W, "move_back": KEY_S, "move_left": KEY_A, "move_right": KEY_D, "sprint": KEY_SHIFT, "jump": KEY_SPACE, "reload": KEY_R}
+	for action in bindings:
+		if not InputMap.has_action(action):
+			InputMap.add_action(action)
+		var key_event := InputEventKey.new()
+		key_event.physical_keycode = bindings[action]
+		InputMap.action_add_event(action, key_event)
 
 func _build_weapon() -> void:
 	weapon_root = Node3D.new()

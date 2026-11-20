@@ -17,6 +17,10 @@ var virtual_move := Vector2.ZERO
 var virtual_fire := false
 var virtual_sprint := false
 var aiming := false
+var smoothed_move := Vector2.ZERO
+var jump_requested := false
+const MOVE_RESPONSE := 11.0
+const STOP_RESPONSE := 15.0
 var camera: Camera3D
 var weapon_root: Node3D
 var muzzle_flash: OmniLight3D
@@ -106,7 +110,8 @@ func apply_look(delta: Vector2) -> void:
 	rotate_y(-delta.x * MOUSE_SENS)
 	pitch = clampf(pitch - delta.y * MOUSE_SENS, deg_to_rad(-80), deg_to_rad(80))
 	camera.rotation.x = pitch
-func set_move(value: Vector2) -> void: virtual_move = value
+func set_move(value: Vector2) -> void: virtual_move = value.limit_length(1.0)
+func request_jump() -> void: jump_requested = true
 func set_fire(value: bool) -> void: virtual_fire = value
 func set_aim(value: bool) -> void: aiming = value
 func set_sprint(value: bool) -> void: virtual_sprint = value
@@ -121,18 +126,22 @@ func _physics_process(delta: float) -> void:
 			reserve_ammo -= loaded
 			reloading = false
 			ammo_changed.emit(ammo, reserve_ammo)
-	var input_vec := Input.get_vector("move_left","move_right","move_forward","move_back")
-	if virtual_move.length() > 0.1: input_vec = virtual_move
-	var direction := (transform.basis * Vector3(input_vec.x,0,input_vec.y)).normalized()
+	var keyboard_vec := Input.get_vector("move_left","move_right","move_forward","move_back")
+	var target_move := virtual_move if virtual_move.length() > 0.02 else keyboard_vec
+	var response := MOVE_RESPONSE if target_move.length() > 0.02 else STOP_RESPONSE
+	smoothed_move = smoothed_move.move_toward(target_move, response * delta)
+	var direction := (transform.basis * Vector3(smoothed_move.x,0,smoothed_move.y)).normalized()
 	var speed := SPRINT_SPEED if (Input.is_action_pressed("sprint") or virtual_sprint) and not aiming else SPEED
-	if direction:
-		velocity.x = direction.x * speed
-		velocity.z = direction.z * speed
-	else:
-		velocity.x = move_toward(velocity.x,0,SPEED*7*delta)
-		velocity.z = move_toward(velocity.z,0,SPEED*7*delta)
-	if not is_on_floor(): velocity.y -= 9.8 * delta
-	elif Input.is_action_just_pressed("jump"): velocity.y = 4.5
+	var target_x := direction.x * speed
+	var target_z := direction.z * speed
+	var acceleration := 22.0 if target_move.length() > 0.02 else 27.0
+	velocity.x = move_toward(velocity.x, target_x, acceleration * delta)
+	velocity.z = move_toward(velocity.z, target_z, acceleration * delta)
+	if not is_on_floor():
+		velocity.y -= 9.8 * delta
+	elif Input.is_action_just_pressed("jump") or jump_requested:
+		velocity.y = 4.5
+	jump_requested = false
 	move_and_slide()
 	camera.fov = lerpf(camera.fov,55.0 if aiming else 78.0,delta*10)
 	weapon_root.position.x = lerpf(weapon_root.position.x,0.18 if aiming else 0.28,delta*9)

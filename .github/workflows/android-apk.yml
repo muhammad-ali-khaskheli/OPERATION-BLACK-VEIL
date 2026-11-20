@@ -30,7 +30,7 @@ jobs:
       - name: Install Android SDK packages
         run: |
           yes | sdkmanager --licenses
-          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmdline-tools;latest" "cmake;3.10.2.4988404" "ndk;23.2.8568313"
 
       - name: Set up Godot 4 with export templates
         uses: chickensoft-games/setup-godot@v2
@@ -60,7 +60,7 @@ jobs:
       - name: Export installable debug APK
         run: |
           mkdir -p build
-          godot --headless --path . --export-debug "Android" build/operation-black-veil-debug.apk
+          godot --headless --verbose --path . --export-debug "Android" build/operation-black-veil-debug.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

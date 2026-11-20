@@ -5,6 +5,9 @@ var health_label: Label
 var ammo_label: Label
 var objective_label: Label
 var health_bar: ProgressBar
+var crosshair: Label
+var hit_marker: Label
+var hit_marker_time := 0.0
 var root: Control
 var joystick_base: Panel
 var joystick_knob: Panel
@@ -59,6 +62,29 @@ func _build_hud() -> void:
 	ammo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	root.add_child(ammo_label)
 	ammo_label.text = "30 / 120"
+
+	crosshair = Label.new()
+	crosshair.text = "+"
+	crosshair.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	crosshair.position = Vector2(-10, -18)
+	crosshair.size = Vector2(20, 36)
+	crosshair.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	crosshair.add_theme_font_size_override("font_size", 30)
+	crosshair.add_theme_color_override("font_color", Color(0.92, 0.96, 0.9, 0.88))
+	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(crosshair)
+
+	hit_marker = Label.new()
+	hit_marker.text = "×"
+	hit_marker.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	hit_marker.position = Vector2(-14, -23)
+	hit_marker.size = Vector2(28, 46)
+	hit_marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hit_marker.add_theme_font_size_override("font_size", 38)
+	hit_marker.add_theme_color_override("font_color", Color(1.0, 0.28, 0.18, 1.0))
+	hit_marker.visible = false
+	hit_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(hit_marker)
 
 	_create_joystick()
 	_add_button("FIRE", "fire", Vector2(-150, -142), Vector2(116, 112), 20)
@@ -206,6 +232,17 @@ func _update_joystick(pos: Vector2) -> void:
 	smoothed_joystick = smoothed_joystick.lerp(raw, 0.42)
 	move_state = smoothed_joystick
 	player.set_move(move_state)
+
+func show_hit_confirm() -> void:
+	if is_instance_valid(hit_marker):
+		hit_marker.visible = true
+		hit_marker_time = 0.16
+
+func _process(delta: float) -> void:
+	if hit_marker_time > 0.0:
+		hit_marker_time -= delta
+		if hit_marker_time <= 0.0 and is_instance_valid(hit_marker):
+			hit_marker.visible = false
 
 func set_health(value: float) -> void:
 	if is_instance_valid(health_label):

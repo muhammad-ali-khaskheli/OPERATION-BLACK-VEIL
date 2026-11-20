@@ -2,6 +2,7 @@ extends CharacterBody3D
 signal health_changed(value: float)
 signal ammo_changed(current: int, reserve: int)
 signal enemy_killed
+signal hit_confirmed
 const SPEED := 5.4
 const SPRINT_SPEED := 8.0
 const MOUSE_SENS := 0.0022
@@ -19,6 +20,9 @@ var virtual_sprint := false
 var aiming := false
 var smoothed_move := Vector2.ZERO
 var jump_requested := false
+var recoil_pitch := 0.0
+var weapon_kick := 0.0
+var sway_time := 0.0
 const MOVE_RESPONSE := 11.0
 const STOP_RESPONSE := 15.0
 var camera: Camera3D
@@ -113,7 +117,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func apply_look(delta: Vector2) -> void:
 	rotate_y(-delta.x * MOUSE_SENS)
 	pitch = clampf(pitch - delta.y * MOUSE_SENS, deg_to_rad(-80), deg_to_rad(80))
-	camera.rotation.x = pitch
+	camera.rotation.x = pitch + recoil_pitch
 func set_move(value: Vector2) -> void: virtual_move = value.limit_length(1.0)
 func request_jump() -> void: jump_requested = true
 func set_fire(value: bool) -> void: virtual_fire = value
@@ -147,8 +151,14 @@ func _physics_process(delta: float) -> void:
 		velocity.y = 4.5
 	jump_requested = false
 	move_and_slide()
-	camera.fov = lerpf(camera.fov,55.0 if aiming else 78.0,delta*10)
-	weapon_root.position.x = lerpf(weapon_root.position.x,0.18 if aiming else 0.28,delta*9)
+	camera.fov = lerpf(camera.fov, 58.0 if aiming else 78.0, delta * 8.0)
+	recoil_pitch = lerpf(recoil_pitch, 0.0, delta * 9.0)
+	camera.rotation.x = pitch + recoil_pitch
+	weapon_kick = lerpf(weapon_kick, 0.0, delta * 13.0)
+	sway_time += delta * (smoothed_move.length() * 8.0)
+	var bob := Vector3(sin(sway_time) * 0.012, absf(cos(sway_time)) * 0.012, 0.0) if smoothed_move.length() > 0.08 else Vector3.ZERO
+	var target_weapon_pos := Vector3(0.18 if aiming else 0.28, -0.25, -0.52 + weapon_kick) + bob
+	weapon_root.position = weapon_root.position.lerp(target_weapon_pos, delta * 10.0)
 	if virtual_fire: _fire()
 	elif not (OS.get_name() == "Android" or OS.get_name() == "iOS") and Input.is_action_pressed("fire"): _fire()
 	if Input.is_action_just_pressed("reload"): reload()
@@ -168,9 +178,11 @@ func _fire() -> void:
 	var query := PhysicsRayQueryParameters3D.create(origin,origin+direction*100.0)
 	query.exclude = [get_rid()]
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	if hit and hit.collider.is_in_group("enemies"): hit.collider.take_hit(34.0)
-	weapon_root.position.z = -0.43
-	get_tree().create_timer(0.055).timeout.connect(func(): weapon_root.position.z = -0.52)
+	if hit and hit.collider.is_in_group("enemies"):
+		hit.collider.take_hit(34.0)
+		hit_confirmed.emit()
+	recoil_pitch = minf(recoil_pitch + deg_to_rad(0.48 if aiming else 0.72), deg_to_rad(4.0))
+	weapon_kick = 0.13
 
 func reload() -> void:
 	if reloading or ammo == MAG_SIZE or reserve_ammo <= 0: return
